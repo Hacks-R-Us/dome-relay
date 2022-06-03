@@ -1,5 +1,6 @@
 import * as udp from 'dgram'
 import * as fs from 'fs'
+import path from 'path'
 
 // Port on controller boards to send LED data to
 const CONTROLLER_PORT = 10460
@@ -35,9 +36,13 @@ for (const [i, segment] of config.segments.entries()) {
 
 const pathToName = new Map()
 const pathToIp = new Map()
+const pathToSocket = new Map()
 for (const mapping of mappings) {
     pathToName.set(mapping.path, mapping.name)
     pathToIp.set(mapping.path, mapping.ip)
+    const socket = udp.createSocket('udp4')
+    socket.bind(0)
+    pathToSocket.set(mapping.path, socket)
 }
 
 console.log(`Dome:`)
@@ -85,7 +90,9 @@ udpServer.on('message', (msg, _remote) => {
         const pathId = (segmentId * 5) + i
         const pathIp = pathToIp.get(pathId)
         if (!pathIp) return
+        const socket = pathToSocket.get((segmentId * 5) + i)
+        if (!socket) return
         const values = packet.slice(path.startIndex, path.startIndex + (path.numLeds * 3))
-        udpServer.send(values, CONTROLLER_PORT, pathIp)
+        socket.send(values, CONTROLLER_PORT, pathIp)
     }
 })
